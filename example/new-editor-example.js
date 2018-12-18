@@ -3,10 +3,12 @@ import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/monokai.css';
 import 'codemirror/addon/search/searchcursor.js';
 import '../src/languages/wescheme';
-import {AST} from '../src/ast';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import Editor from '../src/ui/NewEditor';
+import PropTypes from 'prop-types';
+import {connect} from 'react-redux';
+import BlockEditor from '../src/ui/BlockEditor';
+import TextEditor from '../src/ui/TextEditor';
 import CMBContext from '../src/components/Context';
 import './example-page.less';
 import Parser from '../src/languages/wescheme/WeschemeParser';
@@ -14,12 +16,12 @@ import ByString from '../src/ui/searchers/ByString';
 import ByBlock from '../src/ui/searchers/ByBlock';
 import attachSearch from '../src/ui/Search';
 import Toolbar from '../src/ui/Toolbar';
+import ToggleButton from '../src/ui/ToggleButton';
 import classNames from 'classnames';
-import {Controlled as CodeMirror} from 'react-codemirror2';
 
 // import exampleWeSchemeCode from './cow-game.rkt';
 
-const exampleWeSchemeCode = `(cond (true 1) (false 2))(define (f x) x)`;
+const exampleWeSchemeCode = `(a)(x y)`;
 
 const parser = new Parser();
 
@@ -50,7 +52,7 @@ const options = {
 
 
 
-const UpgradedEditor = attachSearch(Editor, [ByString, ByBlock]);
+const UpgradedBlockEditor = attachSearch(BlockEditor, [ByString, ByBlock]);
 
 @CMBContext
 class EditorInstance extends React.Component {
@@ -59,39 +61,66 @@ class EditorInstance extends React.Component {
     renderer: null,
     language: null,
     blockMode: false,
-    ast: null,
     code: exampleWeSchemeCode,
+    ast: null
   }
 
   handlePrimitives = primitives => this.setState({primitives})
   handleRenderer = renderer => this.setState({renderer});
   handleLanguage = language => this.setState({language});
-  handleAST = ast => {
-    this.setState({ast});
-  }
-
-  handleToggle = () => {
-    this.setState({blockMode: !this.state.blockMode});
-    let code = this.state.blockMode
-      ? this.state.code
-      : this.state.ast.toString();
-    console.log(this.state.ast);
-    this.setState({code: code});
-  }
-
+  handleAST = ast => this.setState({ast});
   handleChange = (ed, data, value) => {
     this.setState({code: value});
   }
+  handleToggle = blockMode => {
+    if (blockMode) {
+      let ast = parser.parse(this.state.code);
+      if (ast) {
+        this.blockMode(ast);
+      } else {
+        // TODO(Justin): proper error
+        throw "Failed to parse";
+      }
+    } else {
+      this.textMode(this.state.ast.toString());
+    }
+  }
 
+  textMode = code => {
+    say("Switching to text mode");
+    this.setState({blockMode: false,
+                   code: code});
+  }
+
+  blockMode = ast => {
+    say("Switching to block mode");
+    this.setAST(ast);
+    this.setState({blockMode: true});
+  }
 
   render() {
     const editorClass = classNames('Editor', 'blocks');
+    return (
+      <div className={editorClass}>
+        <ToggleButton onToggle={this.handleToggle}/>
+        {this.state.blockMode ? this.renderBlocks() : this.renderCode()}
+      </div>
+    );
+  }
+
+  renderCode() {
+    return (
+      <TextEditor
+        cmOptions={cmOptions}
+        parser={parser}
+        code={this.state.code}
+        onBeforeChange={this.handleChange} />
+    );
+  }
+
+  renderBlocks() {
     const toolbarPaneClasses = classNames("col-xs-3 toolbar-pane");
-    const glyphClass = classNames('glyphicon', {
-      'glyphicon-pencil': this.state.blockMode,
-      'glyphicon-align-left': !this.state.blockMode
-    });
-    const theEditor = this.state.blockMode ? (
+    return (
       <React.Fragment>
         <div className={toolbarPaneClasses} tabIndex="-1">
           <Toolbar primitives={this.state.primitives}
@@ -99,7 +128,7 @@ class EditorInstance extends React.Component {
                    languageId={this.state.language} />
         </div>
         <div className="col-xs-9 codemirror-pane">
-          <UpgradedEditor
+          <UpgradedBlockEditor
             language="wescheme"
             value={this.state.code}
             onBeforeChange={this.handleChange}
@@ -112,29 +141,6 @@ class EditorInstance extends React.Component {
             onAST={this.handleAST} />
         </div>
       </React.Fragment>
-    ) : (
-      <React.Fragment>
-        <div className="col-xs-9 codemirror-pane">
-          <CodeMirror
-            value={this.state.code}
-            onBeforeChange={this.handleChange}
-            options={cmOptions} />
-        </div>
-      </React.Fragment>
-    );
-    const buttonAria = "Switch to "
-      + (this.state.blockMode ? "text" : "blocks")
-      + " mode";
-    return (
-      <div className={editorClass}>
-        <button className="blocks-toggle-btn btn btn-default btn-sm"
-                aria-label={buttonAria}
-                onClick={this.handleToggle}
-               tabIndex="0">
-          <span className={glyphClass}></span>
-        </button>
-        {theEditor}
-      </div>
     );
   }
 }

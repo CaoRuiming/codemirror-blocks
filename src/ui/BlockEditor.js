@@ -132,6 +132,7 @@ class Editor extends Component {
     language: PropTypes.string.isRequired,
     parser: PropTypes.object.isRequired,
     setAST: PropTypes.func.isRequired,
+    onAST: PropTypes.func.isRequired,
     setCursor: PropTypes.func.isRequired,
     setQuarantine: PropTypes.func.isRequired,
     setAnnouncer: PropTypes.func.isRequired,
@@ -145,7 +146,6 @@ class Editor extends Component {
     onPrimitives: PropTypes.func,
     onRenderer: PropTypes.func,
     onLanguage: PropTypes.func,
-    onAST: PropTypes.func,
     hasQuarantine: PropTypes.bool.isRequired,
 
     // this is actually required, but it's buggy
@@ -199,7 +199,6 @@ class Editor extends Component {
     onPrimitives: () => {},
     onRenderer: () => {},
     onLanguage: () => {},
-    onAST: () => {},
   }
 
   handleDragOver = (ed, e) => {
@@ -316,6 +315,7 @@ class Editor extends Component {
   }
 
   handleEditorDidMount = ed => {
+    console.log("EDITOR DID MOUNT\n\n");
     const wrapper = ed.getWrapperElement();
     wrapper.setAttribute('role', 'tree');
     wrapper.setAttribute('aria-label', 'Block Editor');
@@ -323,21 +323,20 @@ class Editor extends Component {
     const scroller = ed.getScrollerElement();
     scroller.setAttribute('role', 'presentation');
 
-    const annoucements = document.createElement('span');
-    annoucements.setAttribute('role', 'log');
-    annoucements.setAttribute('aria-live', 'assertive');
-    wrapper.appendChild(annoucements);
+    const announcements = document.createElement('span');
+    announcements.setAttribute('role', 'log');
+    announcements.setAttribute('aria-live', 'assertive');
+    wrapper.appendChild(announcements);
 
     ed.on('changes', this.editorChange);
 
     global.cm = ed;
     const ast = this.props.parser.parse(ed.getValue());
-    console.log("AST is about to be updated!", this.props.setAST);
     this.props.setAST(ast);
     this.props.onAST(ast);
-    this.props.setAnnouncer(annoucements);
+    this.props.setAnnouncer(announcements);
 
-    say('Switching to Block mode');
+    say('Switching to block mode');
 
     // if we have nodes, default to the first one. Note that does NOT
     // activate a node; only when the editor is focused, the focused node will be
@@ -377,7 +376,7 @@ class Editor extends Component {
   componentDidMount() {
     const {
       parser, language, options, search,
-      onPrimitives, onRenderer, onLanguage, onAST
+      onPrimitives, onRenderer, onLanguage,
     } = this.props;
 
     global.parser = parser;
